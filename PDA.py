@@ -125,11 +125,7 @@ def E_snf_TwoStatesEqualBrightness(T1, E1, T2, E2):
     """
     return E_snf_TwoStates(Q1=1, T1=T1, E1=E1, Q2=1, T2=T2, E2=E2)
 
-def getEShotNoise(MCSample, F, Esnf):
-    AD_draw = binom.ppf(MCSample, F, Esnf)
-    return AD_draw/F
-
-def getEShotNoiseFast(F, Esnf):
+def getEShotNoise(F, Esnf):
     """
     Uses numpy module to sample from binomial which is much faster, but loses tracability on MC draw
     """
@@ -263,9 +259,8 @@ def getEvaluesFromDictionaryOfTPairs(E1, E2, overSampleFactorK, durationBinCentr
         E_sn = []
         for i, _F in enumerate(FValues):
             for _E_snf in E_snf[i*overSampleFactorK:((i+1)*overSampleFactorK)]:
-                    #E_sn.append(getEShotNoise(random.uniform(0,1), _F, _E_snf))
                     # Uses fast method which uses optimised numpy binomial avoids generating random number separtely
-                    E_sn.append(getEShotNoiseFast(_F, _E_snf))
+                    E_sn.append(getEShotNoise(_F, _E_snf))
 
         # Add to Dictionary
         EvalueDict[binCentre] = {'Esnf':E_snf, 'Esn':E_sn}
