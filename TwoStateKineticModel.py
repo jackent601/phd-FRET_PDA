@@ -123,9 +123,19 @@ def getMultipleT1T2SamplesFromTiCFD(numberOfSamples, burstDuration, T_Vals, T_CF
         sampleTPairs.append([_T1, _T2])
     return sampleTPairs
 
-def getMultipleT1T2SamplesFromBurstDuration(numberOfSamples, burstDuration, PTwoStateParameters, seed=None):
+def getMultipleT1T2SamplesFromBurstDuration(numberOfSamples, burstDuration, N, k_1, k_minus1, seed=None):
     """
     Generates a CFD from a Time Duration (and k, N values), then uses getMultipleT1T2SampleFromTiCFD to sample from it
+    """
+    # Generate T1 Distribution Based on this Duration (generation of CFD is limiting step)
+    P_T1_distributionForBurstLength = PTi_TwoState_at_del_t(N=N, burstDuration=burstDuration, k_1=k_1, k_minus1=k_minus1, cumsum=True, debug=False)
+    P_T1s = np.array(P_T1_distributionForBurstLength['T1'])
+    P_T1_cumsum = np.array(P_T1_distributionForBurstLength['cumsum'])
+    return getMultipleT1T2SamplesFromTiCFD(numberOfSamples, burstDuration, T_Vals=P_T1s, T_CFD=P_T1_cumsum, seed=seed)
+
+def p_getMultipleT1T2SamplesFromBurstDuration(numberOfSamples, burstDuration, PTwoStateParameters, seed=None):
+    """
+    Identical to getMultipleT1T2SamplesFromBurstDuration but N, k_1, k_minus1 provided in a parameter dictionary to tidy code
     """
     # Unpack Two State Kinetic Parameters
     N = PTwoStateParameters['N']
@@ -138,6 +148,30 @@ def getMultipleT1T2SamplesFromBurstDuration(numberOfSamples, burstDuration, PTwo
     P_T1_cumsum = np.array(P_T1_distributionForBurstLength['cumsum'])
 
     return getMultipleT1T2SamplesFromTiCFD(numberOfSamples, burstDuration, T_Vals=P_T1s, T_CFD=P_T1_cumsum, seed=seed)
+
+def p_getT1T2SamplesFromMultipleBurstDurations(durations, K, PTwoStateParameters, seed=None):
+    """
+    Runs through each duration, generates a CFD, samples T1, T2 values from CFD
+    N, k_1, k_minus1 provided in a parameter dictionary to tidy code
+    Returns two numpy arrays of T1, T2 values
+    """
+    # Unpack Two State Kinetic Parameters
+    N = PTwoStateParameters['N']
+    k_1 = PTwoStateParameters['k_1']
+    k_minus1 = PTwoStateParameters['k_minus1']
+
+    Tpair_samples = []
+
+    # Get T1, T2 samples
+    for _d in durations:
+        T_pairs = getMultipleT1T2SamplesFromBurstDuration(K, _d, N, k_1, k_minus1, seed=seed)
+        Tpair_samples.append(T_pairs)
+
+    # Get arrays of T1, and T2 for paralleled calculation
+    allT1s = np.array([Tpair[0] for TpairSample in Tpair_samples for Tpair in TpairSample])
+    allT2s = np.array([Tpair[1] for TpairSample in Tpair_samples for Tpair in TpairSample])
+    
+    return allT1s, allT2s
 
 # ================================================================================================================================
 # E SNF (shot-noise free) AND E SN (shot-noise)
