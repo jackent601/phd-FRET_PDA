@@ -3,169 +3,170 @@ from scipy.stats import binom
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import TwoStateKineticModel as KM2S
 
-"""
-T1, T2 PROBABILITY DISTRIBUTION FOR BURST DURATION
+# """
+# T1, T2 PROBABILITY DISTRIBUTION FOR BURST DURATION
 
-Kinetic Model for a system that interconverts between two states E1, E2 with constants k1, kminus1
+# Kinetic Model for a system that interconverts between two states E1, E2 with constants k1, kminus1
 
-    Equations ref: Detection of Structural Dynamics by FRET: A Photon Distribution and Fluorescence Lifetime Analysis of Systems with Multiple States
-    DOI: https://pubs.acs.org/doi/10.1021/jp102156t 
+#     Equations ref: Detection of Structural Dynamics by FRET: A Photon Distribution and Fluorescence Lifetime Analysis of Systems with Multiple States
+#     DOI: https://pubs.acs.org/doi/10.1021/jp102156t 
 
-i0, i1 are MODIFIED bessel functions, first kind, and of 0, 1 order respectively
-Note there is a difference between del_t (burst duration) and del_T (width of probability sample)
-"""
+# i0, i1 are MODIFIED bessel functions, first kind, and of 0, 1 order respectively
+# Note there is a difference between del_t (burst duration) and del_T (width of probability sample)
+# """
 
-def P_TwoState_T1_0(k1, k2, del_t):
-    return (k1/(k1+k2))*np.exp(-k2*del_t)
+# def P_TwoState_T1_0(k1, k2, del_t):
+#     return (k1/(k1+k2))*np.exp(-k2*del_t)
 
-def P_TwoState_T2_0(k1, k2, del_t):
-    return P_TwoState_T1_0(k1=k2, k2=k1, del_t=del_t)
+# def P_TwoState_T2_0(k1, k2, del_t):
+#     return P_TwoState_T1_0(k1=k2, k2=k1, del_t=del_t)
 
-def P_TwoState_T1(k1, k2, T1, T2, del_T):
-    bessel_arg = 2*np.sqrt(k1*k2*T1*T2)
+# def P_TwoState_T1(k1, k2, T1, T2, del_T):
+#     bessel_arg = 2*np.sqrt(k1*k2*T1*T2)
     
-    coeff1 = (2*k1*k2)/(k1+k2)
-    bessel1 = i0(bessel_arg)
+#     coeff1 = (2*k1*k2)/(k1+k2)
+#     bessel1 = i0(bessel_arg)
     
-    coeff2 = ((k2*T1+k1*T2)/(k1+k2))*((np.sqrt(k1*k2))/(np.sqrt(T1*T2)))
-    bessel2 = i1(bessel_arg)
+#     coeff2 = ((k2*T1+k1*T2)/(k1+k2))*((np.sqrt(k1*k2))/(np.sqrt(T1*T2)))
+#     bessel2 = i1(bessel_arg)
     
-    exp_term = np.exp(-k1*T1-k2*T2)*del_T
+#     exp_term = np.exp(-k1*T1-k2*T2)*del_T
     
-    return (coeff1*bessel1 + coeff2*bessel2)*exp_term
+#     return (coeff1*bessel1 + coeff2*bessel2)*exp_term
 
-def PTi_TwoState_at_del_t(N, burstDuration, k_1, k_minus1, cumsum = True, debug = False):
-    """
-    For given burst duration, k_1, k_minus1 calculates the probability distribution of spending t seconds in state 1
-    Returns a list of dictionaries of values
+# def PTi_TwoState_at_del_t(N, burstDuration, k_1, k_minus1, cumsum = True, debug = False):
+#     """
+#     For given burst duration, k_1, k_minus1 calculates the probability distribution of spending t seconds in state 1
+#     Returns a list of dictionaries of values
     
-    Equations ref: Detection of Structural Dynamics by FRET: A Photon Distribution and Fluorescence Lifetime Analysis of Systems with Multiple States
-    DOI: https://pubs.acs.org/doi/10.1021/jp102156t
+#     Equations ref: Detection of Structural Dynamics by FRET: A Photon Distribution and Fluorescence Lifetime Analysis of Systems with Multiple States
+#     DOI: https://pubs.acs.org/doi/10.1021/jp102156t
     
-    Equation Derivation: Calculation of Photon-Count Number Distributions via Master Equations
+#     Equation Derivation: Calculation of Photon-Count Number Distributions via Master Equations
     
-    Eqs in the limit of small Delta T, here Delta T = burstDuration/N
-    """
+#     Eqs in the limit of small Delta T, here Delta T = burstDuration/N
+#     """
     
-    del_T = burstDuration/N
+#     del_T = burstDuration/N
     
-    P_T1s = []
+#     P_T1s = []
     
-    for n in range(N+1):
+#     for n in range(N+1):
 
-        if n == 0:
-            # Primarily in State E2
-            _T1 = del_T/4
-            _T2 = burstDuration - _T1
-            _P_T1 = P_TwoState_T1_0(k1=k_1, k2=k_minus1, del_t=burstDuration) + P_TwoState_T1(k1=k_1, k2=k_minus1, T1=_T1, T2=_T2, del_T=del_T/2)
-        elif n == N:
-            # Primarily in State E1
-            _T2 = del_T/4
-            _T1 = burstDuration - _T2
-            _P_T1 = P_TwoState_T2_0(k1=k_1, k2=k_minus1, del_t=burstDuration) + P_TwoState_T1(k1=k_1, k2=k_minus1, T1=_T1, T2=_T2, del_T=del_T/2)
-        else:
-            # Transition Between States
-            _T1 = n*del_T
-            _T2 = burstDuration - _T1
-            _P_T1 = P_TwoState_T1(k1=k_1, k2=k_minus1, T1=_T1, T2=_T2, del_T=del_T)
+#         if n == 0:
+#             # Primarily in State E2
+#             _T1 = del_T/4
+#             _T2 = burstDuration - _T1
+#             _P_T1 = P_TwoState_T1_0(k1=k_1, k2=k_minus1, del_t=burstDuration) + P_TwoState_T1(k1=k_1, k2=k_minus1, T1=_T1, T2=_T2, del_T=del_T/2)
+#         elif n == N:
+#             # Primarily in State E1
+#             _T2 = del_T/4
+#             _T1 = burstDuration - _T2
+#             _P_T1 = P_TwoState_T2_0(k1=k_1, k2=k_minus1, del_t=burstDuration) + P_TwoState_T1(k1=k_1, k2=k_minus1, T1=_T1, T2=_T2, del_T=del_T/2)
+#         else:
+#             # Transition Between States
+#             _T1 = n*del_T
+#             _T2 = burstDuration - _T1
+#             _P_T1 = P_TwoState_T1(k1=k_1, k2=k_minus1, T1=_T1, T2=_T2, del_T=del_T)
 
-        P_T1s.append({'T1':_T1, 'T2':_T2, 'PT1': _P_T1, 'i': n})
+#         P_T1s.append({'T1':_T1, 'T2':_T2, 'PT1': _P_T1, 'i': n})
                 
-        if debug:
-            print(f'T1: {_T1*1e3:0.2f} ms, T2: {_T2*1e3:0.2f} ms, P_T1: {_P_T1}')
+#         if debug:
+#             print(f'T1: {_T1*1e3:0.2f} ms, T2: {_T2*1e3:0.2f} ms, P_T1: {_P_T1}')
         
-    if np.any(np.array([d['PT1'] for d in P_T1s]) < 0):
-            print("WARNING NEGATIVE PROBABILITIES ENCOUNTERED")
+#     if np.any(np.array([d['PT1'] for d in P_T1s]) < 0):
+#             print("WARNING NEGATIVE PROBABILITIES ENCOUNTERED")
         
-    P_T1s_df = pd.DataFrame(P_T1s)
+#     P_T1s_df = pd.DataFrame(P_T1s)
     
-    if cumsum:
-        P_T1s_df['cumsum'] = P_T1s_df.PT1.cumsum()
+#     if cumsum:
+#         P_T1s_df['cumsum'] = P_T1s_df.PT1.cumsum()
             
-    return P_T1s_df
+#     return P_T1s_df
 
-def getT1T2SampleFromTiCFD(MC_sample, burstDuration, T_Vals, T_CFD):
-    """
-    MC_sample: monte carlo sample value
-    T_Vals: values for T1
-    T_CFD: T1 cumulative frequency distribution values
+# def getT1T2SampleFromTiCFD(MC_sample, burstDuration, T_Vals, T_CFD):
+#     """
+#     MC_sample: monte carlo sample value
+#     T_Vals: values for T1
+#     T_CFD: T1 cumulative frequency distribution values
 
-    burstDuration must be value used to generate the CFD
-    """
-    # Catch if MC draw greater than max cumsum (this is due to discrete distribution generation)
-    if MC_sample >= max(T_CFD):
-        return T_Vals[-1], burstDuration-T_Vals[-1]
-    if MC_sample <= min(T_CFD):
-        return T_Vals[0], burstDuration-T_Vals[0]
+#     burstDuration must be value used to generate the CFD
+#     """
+#     # Catch if MC draw greater than max cumsum (this is due to discrete distribution generation)
+#     if MC_sample >= max(T_CFD):
+#         return T_Vals[-1], burstDuration-T_Vals[-1]
+#     if MC_sample <= min(T_CFD):
+#         return T_Vals[0], burstDuration-T_Vals[0]
 
-    # Get first location where probability exceeds sample
-    cumsumIndex = np.argwhere(T_CFD >= MC_sample)[0, 0]
+#     # Get first location where probability exceeds sample
+#     cumsumIndex = np.argwhere(T_CFD >= MC_sample)[0, 0]
 
-    # Retrieve corresponding T1 value, hence calculate T2 value
-    T1 = T_Vals[cumsumIndex]
-    T2 = burstDuration - T1
-    return T1, T2
+#     # Retrieve corresponding T1 value, hence calculate T2 value
+#     T1 = T_Vals[cumsumIndex]
+#     T2 = burstDuration - T1
+#     return T1, T2
 
-"""
-E SNF (shot-noise free) AND E SN (shot-noise)
-"""
+# """
+# E SNF (shot-noise free) AND E SN (shot-noise)
+# """
     
-def E_snf_TwoStates(Q1, T1, E1, Q2, T2, E2):
-    """
-    Ref: Detection of Structural Dynamics by FRET: A Photon Distribution and Fluorescence Lifetime Analysis of Systems with Multiple States
-    """
-    return (Q1*T1*E1 + Q2*T2*E2)/(Q1*T1 + Q2*T2)
+# def E_snf_TwoStates(Q1, T1, E1, Q2, T2, E2):
+#     """
+#     Ref: Detection of Structural Dynamics by FRET: A Photon Distribution and Fluorescence Lifetime Analysis of Systems with Multiple States
+#     """
+#     return (Q1*T1*E1 + Q2*T2*E2)/(Q1*T1 + Q2*T2)
 
-def E_snf_TwoStatesEqualBrightness(T1, E1, T2, E2):
-    """
-    Assumes Equal Brightness Q1 = Q2, need a referance discussing appropriateness
-    Q, brightness is the total count rate (in both donor and acceptor detection channels) at a given excitiation intensity,
-    at a concentration of one moleucle per observation volume
-    """
-    return E_snf_TwoStates(Q1=1, T1=T1, E1=E1, Q2=1, T2=T2, E2=E2)
+# def E_snf_TwoStatesEqualBrightness(T1, E1, T2, E2):
+#     """
+#     Assumes Equal Brightness Q1 = Q2, need a referance discussing appropriateness
+#     Q, brightness is the total count rate (in both donor and acceptor detection channels) at a given excitiation intensity,
+#     at a concentration of one moleucle per observation volume
+#     """
+#     return E_snf_TwoStates(Q1=1, T1=T1, E1=E1, Q2=1, T2=T2, E2=E2)
 
-def getEShotNoise(F, Esnf):
-    """
-    Uses numpy module to sample from binomial which is much faster, but loses tracability on MC draw
-    """
-    AD_draw = np.random.binomial(F, Esnf, 1)
-    return AD_draw/F
+# def getEShotNoise(F, Esnf):
+#     """
+#     Uses numpy module to sample from binomial which is much faster, but loses tracability on MC draw
+#     """
+#     AD_draw = np.random.binomial(F, Esnf, 1)
+#     return AD_draw/F
 
-"""
-CUMULATIVE FREQUENCY DISTRIBUTION GENERATION AND SAMPLING
-"""
+# """
+# CUMULATIVE FREQUENCY DISTRIBUTION GENERATION AND SAMPLING
+# """
 
-def getMultipleT1T2SamplesFromTiCFD(numberOfSamples, burstDuration, T_Vals, T_CFD, seed=None):
-    """
-    See getT1T2SampleFromTiCFD
-    """
-    if seed is not None:
-        np.random.seed(seed)
+# def getMultipleT1T2SamplesFromTiCFD(numberOfSamples, burstDuration, T_Vals, T_CFD, seed=None):
+#     """
+#     See getT1T2SampleFromTiCFD
+#     """
+#     if seed is not None:
+#         np.random.seed(seed)
     
-    sampleTPairs = []
-    #for i in range(numberOfSamples):
-    _MC_samples = np.random.default_rng().random(numberOfSamples)
-    for MC in _MC_samples:
-        _T1, _T2 = getT1T2SampleFromTiCFD(MC, burstDuration, T_Vals, T_CFD)
-        sampleTPairs.append([_T1, _T2])
-    return sampleTPairs
+#     sampleTPairs = []
+#     #for i in range(numberOfSamples):
+#     _MC_samples = np.random.default_rng().random(numberOfSamples)
+#     for MC in _MC_samples:
+#         _T1, _T2 = getT1T2SampleFromTiCFD(MC, burstDuration, T_Vals, T_CFD)
+#         sampleTPairs.append([_T1, _T2])
+#     return sampleTPairs
 
-def getMultipleT1T2SamplesFromBurstDuration(numberOfSamples, burstDuration, PTwoStateParameters, seed=None):
-    """
-    Generates a CFD from a Time Duration (and k, N values), then uses getMultipleT1T2SampleFromTiCFD to sample from it
-    """
-    # Unpack Two State Kinetic Parameters
-    N = PTwoStateParameters['N']
-    k_1 = PTwoStateParameters['k_1']
-    k_minus1 = PTwoStateParameters['k_minus1']
+# def getMultipleT1T2SamplesFromBurstDuration(numberOfSamples, burstDuration, PTwoStateParameters, seed=None):
+#     """
+#     Generates a CFD from a Time Duration (and k, N values), then uses getMultipleT1T2SampleFromTiCFD to sample from it
+#     """
+#     # Unpack Two State Kinetic Parameters
+#     N = PTwoStateParameters['N']
+#     k_1 = PTwoStateParameters['k_1']
+#     k_minus1 = PTwoStateParameters['k_minus1']
 
-    # Generate T1 Distribution Based on this Duration (generation of CFD is limiting step)
-    P_T1_distributionForBurstLength = PTi_TwoState_at_del_t(N=N, burstDuration=burstDuration, k_1=k_1, k_minus1=k_minus1, cumsum=True, debug=False)
-    P_T1s = np.array(P_T1_distributionForBurstLength['T1'])
-    P_T1_cumsum = np.array(P_T1_distributionForBurstLength['cumsum'])
+#     # Generate T1 Distribution Based on this Duration (generation of CFD is limiting step)
+#     P_T1_distributionForBurstLength = PTi_TwoState_at_del_t(N=N, burstDuration=burstDuration, k_1=k_1, k_minus1=k_minus1, cumsum=True, debug=False)
+#     P_T1s = np.array(P_T1_distributionForBurstLength['T1'])
+#     P_T1_cumsum = np.array(P_T1_distributionForBurstLength['cumsum'])
 
-    return getMultipleT1T2SamplesFromTiCFD(numberOfSamples, burstDuration, T_Vals=P_T1s, T_CFD=P_T1_cumsum, seed=seed)
+#     return getMultipleT1T2SamplesFromTiCFD(numberOfSamples, burstDuration, T_Vals=P_T1s, T_CFD=P_T1_cumsum, seed=seed)
 """
 HIGH RESOLUTION SEARCHING (BASED ON INDIVIDUAL BURST DURATIONS)
 """
@@ -190,7 +191,7 @@ def getMultipleT1T2SamplesFromBurstDurationHistogram(overSampleFactorK,
     allPairs = {}
     for burstDuration, burstCount in zip(burstDurationBinValues, burstDurationBinCounts):
         scaledSampleFactor = overSampleFactorK*burstCount
-        TPairs = getMultipleT1T2SamplesFromBurstDuration(scaledSampleFactor, burstDuration, PTwoStateParameters, seed=None)
+        TPairs = KM2S.getMultipleT1T2SamplesFromBurstDuration(scaledSampleFactor, burstDuration, PTwoStateParameters, seed=None)
         allPairs[burstDuration] = {'TPairs': TPairs, 'binCount':burstCount}
     return allPairs
 
@@ -260,7 +261,7 @@ def getEvaluesFromDictionaryOfTPairs(E1, E2, overSampleFactorK, durationBinCentr
         for i, _F in enumerate(FValues):
             for _E_snf in E_snf[i*overSampleFactorK:((i+1)*overSampleFactorK)]:
                     # Uses fast method which uses optimised numpy binomial avoids generating random number separtely
-                    E_sn.append(getEShotNoise(_F, _E_snf))
+                    E_sn.append(KM2S.getEShotNoise(_F, _E_snf))
 
         # Add to Dictionary
         EvalueDict[binCentre] = {'Esnf':E_snf, 'Esn':E_sn}
@@ -312,13 +313,16 @@ def getEsnfForListOfRepeatSimulatedPairs(E1, E2, TSimulatedPairs):
         # Unpack
         _T1, _T2 = Pair
         # Calculate
-        E_simulated.append(E_snf_TwoStatesEqualBrightness(T1=_T1, E1=E1, T2=_T2, E2=E2))
+        E_simulated.append(KM2S.E_snf_TwoStatesEqualBrightness(T1=_T1, E1=E1, T2=_T2, E2=E2))
     return E_simulated
 
 def getScaledSimulatedEHist(simulatedEs, Ebins, overSamplingFactorK):
     simulated_E_Hist, _ = np.histogram(simulatedEs, Ebins)
     simulated_E_Hist_Scaled = simulated_E_Hist/overSamplingFactorK
     return simulated_E_Hist_Scaled
+
+
+# # # # # # # # # BREAK # # # # # # # # # #
 
 def getSSEAndHistFromListOfEs(simulatedEs, Ebins, overSamplingFactorK, experimentEHist):
     # Get Hist
@@ -397,29 +401,29 @@ def endToEndEHistCompare(experimentalObjectsDict,
 DEPRECIATED
 """
 
-def getEHistFromSimulatedTPairs(overSampleFactorK, TSimulatedPairs, E1, E2, EBins):
-    """
-    TSimulatedPairs should be a list of list of T pairs: [ [T1, T2], [T1, T2], ...]
-    """
-    # First Calculate Simulated Es
-    _E_simulated = getEsnfForListOfRepeatSimulatedPairs(E1=E1, E2=E2, TSimulatedPairs=TSimulatedPairs)
+# def getEHistFromSimulatedTPairs(overSampleFactorK, TSimulatedPairs, E1, E2, EBins):
+#     """
+#     TSimulatedPairs should be a list of list of T pairs: [ [T1, T2], [T1, T2], ...]
+#     """
+#     # First Calculate Simulated Es
+#     _E_simulated = getEsnfForListOfRepeatSimulatedPairs(E1=E1, E2=E2, TSimulatedPairs=TSimulatedPairs)
     
-    # Calculate simulated E Hist and Compare to Experiment
-    EHistSim, _ = np.histogram(_E_simulated, bins = EBins)
-    return EHistSim/overSampleFactorK
+#     # Calculate simulated E Hist and Compare to Experiment
+#     EHistSim, _ = np.histogram(_E_simulated, bins = EBins)
+#     return EHistSim/overSampleFactorK
 
-def getSSEFromSimulatedTPairs(overSampleFactorK, TSimulatedPairs, E1, E2, EBins, EHistExperiment):    
-    """
-    TSimulatedPairs should be a list of list of T pairs: [ [[T1, T2], [T1, T2], ...] , ...]
-    """
-    # Check Experimental Histogram same dimensions as generated histogram
-    assert len(EHistExperiment) == len(EBins)-1, "Dimensions of Experimental Histogram and simulated histogram must match!"
+# def getSSEFromSimulatedTPairs(overSampleFactorK, TSimulatedPairs, E1, E2, EBins, EHistExperiment):    
+#     """
+#     TSimulatedPairs should be a list of list of T pairs: [ [[T1, T2], [T1, T2], ...] , ...]
+#     """
+#     # Check Experimental Histogram same dimensions as generated histogram
+#     assert len(EHistExperiment) == len(EBins)-1, "Dimensions of Experimental Histogram and simulated histogram must match!"
     
-    # Get Histogram For these simulated Ts
-    EHistSim = getEHistFromSimulatedTPairs(overSampleFactorK=overSampleFactorK, TSimulatedPairs=TSimulatedPairs, E1=E1, E2=E2, EBins=EBins)
+#     # Get Histogram For these simulated Ts
+#     EHistSim = getEHistFromSimulatedTPairs(overSampleFactorK=overSampleFactorK, TSimulatedPairs=TSimulatedPairs, E1=E1, E2=E2, EBins=EBins)
     
-    # Return SSE
-    return np.sum(np.array(np.array(EHistExperiment) - np.array(EHistSim))**2), EHistSim
+#     # Return SSE
+#     return np.sum(np.array(np.array(EHistExperiment) - np.array(EHistSim))**2), EHistSim
 
 
 
