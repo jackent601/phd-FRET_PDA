@@ -45,12 +45,12 @@ def makeDataGlobal(burstData, expEHist, EBins, E1min, E2min, K, N):
     K0 = K
     N0 = N
 
-def poolFunc_getSSEForkpair(ks):
+def poolFunc_getSSEForkpair(kpair):
     """
     Define pool function for each child process in MP, note it returns k values to keep track as multi-processing can
     execute in arbitrary orders
     """
-    _k1, _kminus1 = ks
+    _k1, _kminus1 = kpair
     try:
         E_snf, E_sn = PDA.getEsnfEsnFromBurstDataFrame(BurstData=BURST_DATA,
                                                     E1=E1MIN,
@@ -66,13 +66,13 @@ def poolFunc_getSSEForkpair(ks):
     return _k1, _kminus1, sse
 
 
-def runPDAOverkSpace_MultiProcess_FileOutput(ks, PROCESSOR_COUNT, outputPath, burstData, expEHist, EBins, E1min, E2min, K, N, debug=True):
+def runPDAOverkSpace_MultiProcess_FileOutput(kpairs, PROCESSOR_COUNT, outputPath, burstData, expEHist, EBins, E1min, E2min, K, N, debug=True):
     """
     Faster than dictionary as doesn't clog up memory
-    ks should be an array of k pairs [ [k1_1, kminus1_1], [k1_2, kminus1_2], .. [,] ]
+    kpairs should be an array of k pairs [ [k1_1, kminus1_1], [k1_2, kminus1_2], .. [,] ]
     """
     NUMBER_RAN = 0
-    kSpaceSize = len(ks)
+    kSpaceSize = len(kpairs)
     
     # Make values Global for child processes
     makeDataGlobal(burstData, expEHist, EBins, E1min, E2min, K, N)  
@@ -86,7 +86,7 @@ def runPDAOverkSpace_MultiProcess_FileOutput(ks, PROCESSOR_COUNT, outputPath, bu
     
         # Run PDA using multi-processing
         with mp.Pool(PROCESSOR_COUNT, initializer=makeDataGlobal, initargs=(burstData, expEHist, EBins, E1min, E2min, K, N,)) as p:
-            for result in p.imap_unordered(poolFunc_getSSEForkpair, kSpaceTotal):
+            for result in p.imap_unordered(poolFunc_getSSEForkpair, kpairs):
                 # unpack result
                 _k1, _kminus1, _sse = result
                 result_string = f'{_k1},{_kminus1},{_sse}'
@@ -95,13 +95,13 @@ def runPDAOverkSpace_MultiProcess_FileOutput(ks, PROCESSOR_COUNT, outputPath, bu
                 f.writelines(f'{result_string}\n')
                 NUMBER_RAN += 1
     
-def runPDAOverkSpace_MultiProcess_DictListOutput(ks, PROCESSOR_COUNT, burstData, expEHist, EBins, E1min, E2min, K, N, debug=True):
+def runPDAOverkSpace_MultiProcess_DictListOutput(kpairs, PROCESSOR_COUNT, burstData, expEHist, EBins, E1min, E2min, K, N, debug=True):
     """
     Slower than outputting to file as dictionary list grows in memory
-    ks should be an array of k pairs [ [k1_1, kminus1_1], [k1_2, kminus1_2], .. [,] ]
+    kpairs should be an array of k pairs [ [k1_1, kminus1_1], [k1_2, kminus1_2], .. [,] ]
     """
     NUMBER_RAN = 0
-    kSpaceSize = len(ks)
+    kSpaceSize = len(kpairs)
     
     # Make values Global for child processes
     makeDataGlobal(burstData, expEHist, EBins, E1min, E2min, K, N)  
@@ -109,7 +109,7 @@ def runPDAOverkSpace_MultiProcess_DictListOutput(ks, PROCESSOR_COUNT, burstData,
     # Run PDA using multi-processing
     resultDictList = []
     with mp.Pool(PROCESSOR_COUNT, initializer=makeDataGlobal, initargs=(burstData, expEHist, EBins, E1min, E2min, K, N,)) as p:
-        for result in p.imap_unordered(poolFunc_getSSEForkpair, kSpaceTotal):
+        for result in p.imap_unordered(poolFunc_getSSEForkpair, kpairs):
             # unpack result
             _k1, _kminus1, _sse = result
             resultDictList.append({'k1': _k1, 'kminus1': _kminus1, 'SSE': _sse})
@@ -163,25 +163,26 @@ if __name__ == '__main__':
     kminus1Space = np.linspace(max(1, 300), 1000, 5)
     kSpaceTotal = [[_k1, _kminus1] for _k1 in k1Space for _kminus1 in kminus1Space]
     
-    # runPDAOverkSpace_MultiProcess_FileOutput(ks=kSpaceTotal,
-    #                                          PROCESSOR_COUNT=20,
-    #                                          outputPath='./mpFuncTest2.csv',
-    #                                          burstData=sample,
-    #                                          expEHist=exp_E_Hist,
-    #                                          EBins=Ebins,
-    #                                          E1min=E1min,
-    #                                          E2min=E2min,
-    #                                          K=5,
-    #                                          N=100)
+    # File Output Function
+    runPDAOverkSpace_MultiProcess_FileOutput(kpairs=kSpaceTotal,
+                                             PROCESSOR_COUNT=20,
+                                             outputPath='./mpFuncTest2.csv',
+                                             burstData=sample,
+                                             expEHist=exp_E_Hist,
+                                             EBins=Ebins,
+                                             E1min=E1min,
+                                             E2min=E2min,
+                                             K=5,
+                                             N=100)
+    # Dictionary function
+    # test = runPDAOverkSpace_MultiProcess_DictListOutput(ks=kSpaceTotal,
+    #                                                     PROCESSOR_COUNT=20,
+    #                                                     burstData=sample,
+    #                                                     expEHist=exp_E_Hist,
+    #                                                     EBins=Ebins,
+    #                                                     E1min=E1min,
+    #                                                     E2min=E2min,
+    #                                                     K=5,
+    #                                                     N=100)
     
-    test = runPDAOverkSpace_MultiProcess_DictListOutput(ks=kSpaceTotal,
-                                                        PROCESSOR_COUNT=20,
-                                                        burstData=sample,
-                                                        expEHist=exp_E_Hist,
-                                                        EBins=Ebins,
-                                                        E1min=E1min,
-                                                        E2min=E2min,
-                                                        K=5,
-                                                        N=100)
-    
-    print(test)
+    # print(test)
