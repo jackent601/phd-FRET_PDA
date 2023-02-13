@@ -81,18 +81,19 @@ def runPDAOverkSpace_MultiProcess_FileOutput(kpairs, PROCESSOR_COUNT, outputPath
     assert not os.path.exists(outputPath), f"{outputPath} already exists!"
     
     # Open output (0 is a 'flush' command to write continuously to file rather than dump at end)
-    with open(outputPath, 'a+', 0) as f:
-        f.writelines(f'k1,kminus1,SSE\n')
+    with open(outputPath, 'wb', 0) as f:
+        header = f'k1,kminus1,SSE\n'
+        f.write(header.encode())
     
         # Run PDA using multi-processing
         with mp.Pool(PROCESSOR_COUNT, initializer=makeDataGlobal, initargs=(burstData, expEHist, EBins, E1min, E2min, K, N,)) as p:
             for result in p.imap_unordered(poolFunc_getSSEForkpair, kpairs):
                 # unpack result
                 _k1, _kminus1, _sse = result
-                result_string = f'{_k1},{_kminus1},{_sse}'
+                result_string = f'{_k1},{_kminus1},{_sse}\n'
                 if debug:
                     print(f'{100*NUMBER_RAN/kSpaceSize:0.2F} % Ran \t k1: {_k1}, kminus1: {_kminus1}, SSE: {_sse:0.2f}')
-                f.writelines(f'{result_string}\n')
+                f.write(result_string.encode())
                 NUMBER_RAN += 1
     
 def runPDAOverkSpace_MultiProcess_DictListOutput(kpairs, PROCESSOR_COUNT, burstData, expEHist, EBins, E1min, E2min, K, N, debug=True):
