@@ -1,77 +1,131 @@
 import TwoStateKineticModel as KM2S
 import PDA as PDA
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
-import sys
-# from multiprocessing import Pool
 import multiprocess as mp
+import sys
+import os
 sys.path.append('./../')
-
 import modules.modulesPopulationFitting as PF
 import modules.modulesCorrectionFactorsAndPlots as MCF
 
-# NUMBER_RAN = 0
+# ==================================================================================================================================
+#   PDA MULTIPROCESSING
+# ==================================================================================================================================
 
-def runPDAOverkSpace_MultiProcess(ks, PROCESSOR_COUNT, outputPath, burstData, expEHist, EBins, E1min, E2min, K, N):
+# Multi-processing implementation of PDA for faster search in k space
+
+# Note using multiprocess, rather than pythons inbuilt as multiprocess is compatible with IPython 
+# All child threads need to read burst data, hence need to define globally accessible values,
+# See here for explanation: https://stackoverflow.com/questions/52543868/pass-data-to-python-multiprocessing-pool-worker-processes
+
+# ==================================================================================================================================
+
+
+def makeDataGlobal(burstData, expEHist, EBins, E1min, E2min, K, N):
     """
+    Make Global Initialiser so data is available in each child process of multi-process
+    See here for explanation: https://stackoverflow.com/questions/52543868/pass-data-to-python-multiprocessing-pool-worker-processes
+    """
+    # Declare variables to be Global
+    global BURST_DATA
+    global EXP_E_HIST
+    global E_BINS
+    global E1MIN
+    global E2MIN
+    global K0
+    global N0
     
+    # Update globals with a value, now *implicitly* accessible in func
+    BURST_DATA = burstData
+    EXP_E_HIST = expEHist
+    E_BINS = EBins
+    E1MIN = E1min
+    E2MIN = E2min
+    K0 = K
+    N0 = N
+
+def poolFunc_getSSEForkpair(ks):
+    """
+    Define pool function for each child process in MP, note it returns k values to keep track as multi-processing can
+    execute in arbitrary orders
+    """
+    _k1, _kminus1 = ks
+    try:
+        E_snf, E_sn = PDA.getEsnfEsnFromBurstDataFrame(BurstData=BURST_DATA,
+                                                    E1=E1MIN,
+                                                    E2=E2MIN,
+                                                    K=K0,
+                                                    N=N0,
+                                                    k1=_k1,
+                                                    kminus1=_kminus1)
+
+        sse = PDA.getSSEFromListOfEs(E_sn, E_BINS, K0, EXP_E_HIST)
+    except Exception as e:
+        sse = None
+    return _k1, _kminus1, sse
+
+
+def runPDAOverkSpace_MultiProcess_FileOutput(ks, PROCESSOR_COUNT, outputPath, burstData, expEHist, EBins, E1min, E2min, K, N, debug=True):
+    """
+    Faster than dictionary as doesn't clog up memory
     ks should be an array of k pairs [ [k1_1, kminus1_1], [k1_2, kminus1_2], .. [,] ]
     """
     NUMBER_RAN = 0
     kSpaceSize = len(ks)
     
-    # Make Global Initialiser so data is available in each child process
-    def makeDataGlobal(burstData, expEHist, EBins, E1min, E2min, K, N):
-        # Declare variables to be Global
-        global BURST_DATA
-        global EXP_E_HIST
-        global E_BINS
-        global E1MIN
-        global E2MIN
-        global K0
-        global N0
-        
-        # Update 'global_cache' with a value, now *implicitly* accessible in func
-        BURST_DATA = burstData
-        EXP_E_HIST = expEHist
-        E_BINS = EBins
-        E1MIN = E1min
-        E2MIN = E2min
-        K0 = K
-        N0 = N
-        
+    # Make values Global for child processes
+    makeDataGlobal(burstData, expEHist, EBins, E1min, E2min, K, N)  
     
-    def poolFunc_getSSEForkpair(ks):
-        _k1, _kminus1 = ks
-        
-        E_snf, E_sn = PDA.getEsnfEsnFromBurstDataFrame(BurstData=BURST_DATA,
-                                                       E1=E1MIN,
-                                                       E2=E2MIN,
-                                                       K=K0,
-                                                       N=N0,
-                                                       k1=_k1,
-                                                       kminus1=_kminus1)
-
-        sse = PDA.getSSEFromListOfEs(E_sn, E_BINS, K0, EXP_E_HIST)
-        # return {'k1': _k1, 'kminus1': _kminus1, 'SSE': sse}
-        return f'{_k1},{_kminus1},{sse:0.2f}'
+    # Ensure output doesnt exist
+    assert not os.path.exists(outputPath), f"{outputPath} already exists!"
     
-    
+    # Open output
     with open(outputPath, 'a+') as f:
         f.writelines(f'k1,kminus1,SSE\n')
     
+        # Run PDA using multi-processing
         with mp.Pool(PROCESSOR_COUNT, initializer=makeDataGlobal, initargs=(burstData, expEHist, EBins, E1min, E2min, K, N,)) as p:
             for result in p.imap_unordered(poolFunc_getSSEForkpair, kSpaceTotal):
-                r_string = result
-                print(f'{100*NUMBER_RAN/kSpaceSize:0.2F} % Ran \t {r_string}')
-                f.writelines(f'{result}\n')
+                # unpack result
+                _k1, _kminus1, _sse = result
+                result_string = f'{_k1},{_kminus1},{_sse}'
+                if debug:
+                    print(f'{100*NUMBER_RAN/kSpaceSize:0.2F} % Ran \t k1: {_k1}, kminus1: {_kminus1}, SSE: {_sse:0.2f}')
+                f.writelines(f'{result_string}\n')
                 NUMBER_RAN += 1
     
-
+def runPDAOverkSpace_MultiProcess_DictListOutput(ks, PROCESSOR_COUNT, burstData, expEHist, EBins, E1min, E2min, K, N, debug=True):
+    """
+    Slower than outputting to file as dictionary list grows in memory
+    ks should be an array of k pairs [ [k1_1, kminus1_1], [k1_2, kminus1_2], .. [,] ]
+    """
+    NUMBER_RAN = 0
+    kSpaceSize = len(ks)
+    
+    # Make values Global for child processes
+    makeDataGlobal(burstData, expEHist, EBins, E1min, E2min, K, N)  
+    
+    # Run PDA using multi-processing
+    resultDictList = []
+    with mp.Pool(PROCESSOR_COUNT, initializer=makeDataGlobal, initargs=(burstData, expEHist, EBins, E1min, E2min, K, N,)) as p:
+        for result in p.imap_unordered(poolFunc_getSSEForkpair, kSpaceTotal):
+            # unpack result
+            _k1, _kminus1, _sse = result
+            resultDictList.append({'k1': _k1, 'kminus1': _kminus1, 'SSE': _sse})
+            if debug:
+                print(f'{100*NUMBER_RAN/kSpaceSize:0.2F} % Ran \t k1: {_k1}, kminus1: {_kminus1}, SSE: {_sse:0.2f}')
+            NUMBER_RAN += 1
+    return resultDictList
+                
+                
 if __name__ == '__main__':
     # =======================================================================================================================
     # TODO - Include Parser to functionalise this code
+    # =======================================================================================================================
+    
+    # =======================================================================================================================
+    # EXAMPLE
     # =======================================================================================================================
     
     # Read Device Runs (With corrections)
@@ -109,80 +163,25 @@ if __name__ == '__main__':
     kminus1Space = np.linspace(max(1, 300), 1000, 5)
     kSpaceTotal = [[_k1, _kminus1] for _k1 in k1Space for _kminus1 in kminus1Space]
     
-    runPDAOverkSpace_MultiProcess(ks=kSpaceTotal, 
-                                  PROCESSOR_COUNT=20,
-                                  outputPath='./mpFuncTest.csv',
-                                  burstData=sample,
-                                  expEHist=exp_E_Hist,
-                                  EBins=Ebins,
-                                  E1min=E1min,
-                                  E2min=E2min,
-                                  K=5,
-                                  N=50)
-        
-    # # Make Global Initialiser so data is available in each child process
-    # def makeDataGlobal(burstData, expEHist, EBins, E1min, E2min, K, N):
-    #     # Declare variables to be Global
-    #     global BURST_DATA
-    #     global EXP_E_HIST
-    #     global E_BINS
-    #     global E1MIN
-    #     global E2MIN
-    #     global K0
-    #     global N0
-        
-    #     # Update 'global_cache' with a value, now *implicitly* accessible in func
-    #     BURST_DATA = burstData
-    #     EXP_E_HIST = expEHist
-    #     E_BINS = EBins
-    #     E1MIN = E1min
-    #     E2MIN = E2min
-    #     K0 = K
-    #     N0 = N
-        
+    # runPDAOverkSpace_MultiProcess_FileOutput(ks=kSpaceTotal,
+    #                                          PROCESSOR_COUNT=20,
+    #                                          outputPath='./mpFuncTest2.csv',
+    #                                          burstData=sample,
+    #                                          expEHist=exp_E_Hist,
+    #                                          EBins=Ebins,
+    #                                          E1min=E1min,
+    #                                          E2min=E2min,
+    #                                          K=5,
+    #                                          N=100)
     
-    # def poolFunc(ks):
-    #     _k1, _kminus1 = ks
-        
-    #     E_snf, E_sn = PDA.getEsnfEsnFromBurstDataFrame(BurstData=BURST_DATA,
-    #                                                    E1=E1MIN,
-    #                                                    E2=E2MIN,
-    #                                                    K=K0,
-    #                                                    N=N0,
-    #                                                    k1=_k1,
-    #                                                    kminus1=_kminus1)
-
-    #     sse = PDA.getSSEFromListOfEs(E_sn, E_BINS, K0, EXP_E_HIST)
-    #     # return {'k1': _k1, 'kminus1': _kminus1, 'SSE': sse}
-    #     return f'{_k1},{_kminus1},{sse:0.2f}'
-
-    # # Get E, k starting values (Coarse search should be ran to generate this DF)
-    # kdf = pd.read_csv(".\\csvs\\30_01_2023_NaCl_198_expansion.csv")
-    # SSE_min = kdf.sort_values('SSE', ascending=True).iloc[0, :]
-    # SSE_min_val = SSE_min.SSE
-    # k1min = SSE_min.k_1
-    # kminus1min = SSE_min.k_minus1
-    # E1min = SSE_min.E1
-    # E2min = SSE_min.E2
-
-    # print(
-    #     f'NaCl: {concs[3]} mM, k1 min: {k1min:0.2f}, kminus1 min: {kminus1min:0.2f}, SSE: {SSE_min_val:0.2f}')
+    test = runPDAOverkSpace_MultiProcess_DictListOutput(ks=kSpaceTotal,
+                                                        PROCESSOR_COUNT=20,
+                                                        burstData=sample,
+                                                        expEHist=exp_E_Hist,
+                                                        EBins=Ebins,
+                                                        E1min=E1min,
+                                                        E2min=E2min,
+                                                        K=5,
+                                                        N=100)
     
-    # # Really this shouldn't be square but be based on 
-    # # the area of SSE exploration
-    # k1Space = np.linspace(max(1, 300), 4000, 5)
-    # kminus1Space = np.linspace(max(1, 300), 1000, 5)
-
-    # # Create array of arrays of kspace
-    # kSpaceTotal = [[_k1, _kminus1] for _k1 in k1Space for _kminus1 in kminus1Space]
-    # kSpaceLength = len(kSpaceTotal)
-    
-    # with open('mp_csv_test2.csv', 'a+') as f:
-    #     f.writelines(f'k1,kminus1,sse')
-    
-    #     with mp.Pool(20, initializer=makeDataGlobal, initargs=(sample, exp_E_Hist, Ebins, E1min, E2min, 5, 50,)) as p:
-    #         for result in p.imap_unordered(poolFunc, kSpaceTotal):
-    #             r_string = result
-    #             print(f'{100*NUMBER_RAN/kSpaceLength:0.2F} % Ran \t {r_string}')
-    #             f.writelines(f'{result}\n')
-    #             NUMBER_RAN += 1
+    print(test)
