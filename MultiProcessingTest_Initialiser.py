@@ -80,8 +80,8 @@ def runPDAOverkSpace_MultiProcess_FileOutput(kpairs, PROCESSOR_COUNT, outputPath
     # Ensure output doesnt exist
     assert not os.path.exists(outputPath), f"{outputPath} already exists!"
     
-    # Open output
-    with open(outputPath, 'a+') as f:
+    # Open output (0 is a 'flush' command to write continuously to file rather than dump at end)
+    with open(outputPath, 'a+', 0) as f:
         f.writelines(f'k1,kminus1,SSE\n')
     
         # Run PDA using multi-processing
