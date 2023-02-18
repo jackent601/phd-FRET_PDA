@@ -28,13 +28,13 @@ def getDurationsAndFlourescence(sample, durationFeatureName='duration', adPhoton
     
     return np.array(durations), np.array(flourescence)
 
-def getEsnfEsnFromDurationsAndFs(E1, E2, durations, Fs, K, N, k1, kminus1):
+def getEsnfEsnFromDurationsAndFs(E1, E2, durations, Fs, K, N, k1, kminus1, seed=None):
     """
     Calculates Esnf, Esn for a list of durations with flourescences
     """
 
     # Get arrays of T1, and T2 from CFD distributions
-    allT1s, allT2s = KM2S.p_getT1T2SamplesFromMultipleBurstDurations(durations, K, {'N': N, 'k_1': k1, 'k_minus1': kminus1})
+    allT1s, allT2s = KM2S.p_getT1T2SamplesFromMultipleBurstDurations(durations, K, {'N': N, 'k_1': k1, 'k_minus1': kminus1}, seed=seed)
     
     # Scale Flourescence by oversampling factor for binomial sampling
     F_scaled = Fs.repeat(K)
@@ -47,9 +47,9 @@ def getEsnfEsnFromDurationsAndFs(E1, E2, durations, Fs, K, N, k1, kminus1):
     
     return E_snf, E_sn
 
-def getEsnfEsnFromBurstDataFrame(BurstData, E1, E2, K, N, k1, kminus1):
+def getEsnfEsnFromBurstDataFrame(BurstData, E1, E2, K, N, k1, kminus1, seed=None):
     d, F = getDurationsAndFlourescence(BurstData)
-    return getEsnfEsnFromDurationsAndFs(E1=E1, E2=E2, durations=d, Fs=F, K=K, N=N, k1=k1, kminus1=kminus1)
+    return getEsnfEsnFromDurationsAndFs(E1=E1, E2=E2, durations=d, Fs=F, K=K, N=N, k1=k1, kminus1=kminus1, seed=seed)
 
 
 # ================================================================================================================================
