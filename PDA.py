@@ -47,10 +47,32 @@ def getEsnfEsnFromDurationsAndFs(E1, E2, durations, Fs, K, N, k1, kminus1, seed=
     
     return E_snf, E_sn
 
+def OLD_getEsnfEsnFromDurationsAndFs(E1, E2, durations, Fs, K, N, k1, kminus1, seed=None):
+    """
+    Calculates Esnf, Esn for a list of durations with flourescences
+    """
+
+    # Get arrays of T1, and T2 from CFD distributions
+    allT1s, allT2s = KM2S.p_getT1T2SamplesFromMultipleBurstDurations(durations, K, {'N': N, 'k_1': k1, 'k_minus1': kminus1}, seed=seed)
+    
+    # Scale Flourescence by oversampling factor for binomial sampling
+    F_scaled = Fs.repeat(K)
+
+    # Calculate shot-noise free simulated E values 
+    E_snf = KM2S.E_snf_TwoStatesEqualBrightness(allT1s, E1, allT2s, E2)
+
+    # Calculate shot-noise-dependent for each T pair in this duration sample
+    E_sn = np.array([KM2S.getEShotNoise(_F, _E_snf) for _F, _E_snf in zip(F_scaled, E_snf)]).ravel() 
+    
+    return E_snf, E_sn
+
 def getEsnfEsnFromBurstDataFrame(BurstData, E1, E2, K, N, k1, kminus1, seed=None):
     d, F = getDurationsAndFlourescence(BurstData)
     return getEsnfEsnFromDurationsAndFs(E1=E1, E2=E2, durations=d, Fs=F, K=K, N=N, k1=k1, kminus1=kminus1, seed=seed)
 
+def OLD_getEsnfEsnFromBurstDataFrame(BurstData, E1, E2, K, N, k1, kminus1, seed=None):
+    d, F = getDurationsAndFlourescence(BurstData)
+    return getEsnfEsnFromDurationsAndFs(E1=E1, E2=E2, durations=d, Fs=F, K=K, N=N, k1=k1, kminus1=kminus1, seed=seed)
 
 # ================================================================================================================================
 # SIMULATED E UTILITIES

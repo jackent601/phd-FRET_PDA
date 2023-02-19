@@ -1,8 +1,6 @@
 from scipy.special import i0, i1
-from scipy.stats import binom
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 # ================================================================================================================================
 #   T1, T2 PROBABILITY DISTRIBUTION FOR BURST DURATION
@@ -26,19 +24,68 @@ def P_TwoState_T2_0(k1, k2, del_t):
     return P_TwoState_T1_0(k1=k2, k2=k1, del_t=del_t)
 
 def P_TwoState_T1(k1, k2, T1, T2, del_T):
-    bessel_arg = 2*np.sqrt(k1*k2*T1*T2)
+    """
+    Removed variable assignment, does this help numpy array evaluation?
+    """
+    # bessel_arg = 2*np.sqrt(k1*k2*T1*T2)
     
-    coeff1 = (2*k1*k2)/(k1+k2)
-    bessel1 = i0(bessel_arg)
+    # # coeff1 = ((2*k1*k2)/(k1+k2))
+    # bessel1 = ((2*k1*k2)/(k1+k2))*i0(bessel_arg)
     
-    coeff2 = ((k2*T1+k1*T2)/(k1+k2))*((np.sqrt(k1*k2))/(np.sqrt(T1*T2)))
-    bessel2 = i1(bessel_arg)
+    # # coeff2 = ((k2*T1+k1*T2)/(k1+k2))*((np.sqrt(k1*k2))/(np.sqrt(T1*T2)))
+    # bessel2 = ((k2*T1+k1*T2)/(k1+k2))*((np.sqrt(k1*k2))/(np.sqrt(T1*T2)))*i1(bessel_arg)
     
-    exp_term = np.exp(-k1*T1-k2*T2)*del_T
+    # exp_term = np.exp(-k1*T1-k2*T2)*del_T
     
-    return (coeff1*bessel1 + coeff2*bessel2)*exp_term
+    # return (bessel1 + bessel2)*exp_term
+    return (((k2*T1+k1*T2)/(k1+k2))*((np.sqrt(k1*k2))/(np.sqrt(T1*T2)))*i1(2*np.sqrt(k1*k2*T1*T2)) + ((2*k1*k2)/(k1+k2))*i0(2*np.sqrt(k1*k2*T1*T2)))*np.exp(-k1*T1-k2*T2)*del_T
+
+
 
 def PTi_TwoState_at_del_t(N, burstDuration, k_1, k_minus1, cumsum = True, debug = False):
+    """
+    For given burst duration, k_1, k_minus1 calculates the probability distribution of spending t seconds in state 1 and state 2
+    Returns a dataframe of probability distribution for delt
+    """
+    
+    del_T = burstDuration/N
+    
+    _T1s = np.zeros(N+1)
+    _T2s = np.zeros(N+1)
+    _PT1s = np.zeros(N+1)
+    
+    # Handle T1 = 0
+    _T1s[0] = del_T/4
+    _T2s[0] = burstDuration - del_T/4
+    _PT1s[0] = P_TwoState_T1_0(k1=k_1, k2=k_minus1, del_t=burstDuration) + \
+        P_TwoState_T1(k1=k_1, k2=k_minus1, T1=del_T/4, T2=burstDuration - del_T/4, del_T=del_T/2)
+
+    # Handle 0 < T1 < BD
+    _TransitionSteps = np.array(range(1, N))
+    _TransitionT1s = _TransitionSteps*del_T
+    _TransitionT2s = burstDuration - _TransitionT1s
+    _TransitionPT1s = P_TwoState_T1(k1=k_1, k2=k_minus1, T1=_TransitionT1s, T2=_TransitionT2s, del_T=del_T)
+    
+    _T1s[1:N] = _TransitionT1s
+    _T2s[1:N] = _TransitionT2s
+    _PT1s[1:N] = _TransitionPT1s
+            
+    # Handle T1 = BD
+    _T1s[N] = burstDuration - del_T/4
+    _T2s[N] = del_T/4
+    _PT1s[N] = P_TwoState_T2_0(k1=k_1, k2=k_minus1, del_t=burstDuration) + \
+        P_TwoState_T1(k1=k_1, k2=k_minus1, T1=burstDuration - del_T/4, T2=del_T/4, del_T=del_T/2)
+        
+    if np.any(_PT1s < 0):
+            print("WARNING NEGATIVE PROBABILITIES ENCOUNTERED")
+    
+    if cumsum:
+        _cumsum = np.cumsum(_PT1s)
+        return _T1s, _T2s, _PT1s, _cumsum
+            
+    return _T1s, _T2s, _PT1s
+
+def OLD_PTi_TwoState_at_del_t(N, burstDuration, k_1, k_minus1, cumsum = True, debug = False):
     """
     For given burst duration, k_1, k_minus1 calculates the probability distribution of spending t seconds in state 1 and state 2
     Returns a dataframe of probability distribution for delt
@@ -128,6 +175,14 @@ def getMultipleT1T2SamplesFromBurstDuration(numberOfSamples, burstDuration, N, k
     Generates a CFD from a Time Duration (and k, N values), then uses getMultipleT1T2SampleFromTiCFD to sample from it
     """
     # Generate T1 Distribution Based on this Duration (generation of CFD is limiting step)
+    _T1s, _T2s, _PT1s, _cumsum = PTi_TwoState_at_del_t(N=N, burstDuration=burstDuration, k_1=k_1, k_minus1=k_minus1, cumsum=True, debug=False)
+    return getMultipleT1T2SamplesFromTiCFD(numberOfSamples, burstDuration, T_Vals=_T1s, T_CFD=_cumsum, seed=seed)
+
+def OLD_getMultipleT1T2SamplesFromBurstDuration(numberOfSamples, burstDuration, N, k_1, k_minus1, seed=None):
+    """
+    Generates a CFD from a Time Duration (and k, N values), then uses getMultipleT1T2SampleFromTiCFD to sample from it
+    """
+    # Generate T1 Distribution Based on this Duration (generation of CFD is limiting step)
     P_T1_distributionForBurstLength = PTi_TwoState_at_del_t(N=N, burstDuration=burstDuration, k_1=k_1, k_minus1=k_minus1, cumsum=True, debug=False)
     P_T1s = np.array(P_T1_distributionForBurstLength['T1'])
     P_T1_cumsum = np.array(P_T1_distributionForBurstLength['cumsum'])
@@ -165,6 +220,30 @@ def p_getT1T2SamplesFromMultipleBurstDurations(durations, K, PTwoStateParameters
     # Get T1, T2 samples
     for _d in durations:
         T_pairs = getMultipleT1T2SamplesFromBurstDuration(K, _d, N, k_1, k_minus1, seed=seed)
+        Tpair_samples.append(T_pairs)
+
+    # Get arrays of T1, and T2 for paralleled calculation
+    allT1s = np.array([Tpair[0] for TpairSample in Tpair_samples for Tpair in TpairSample])
+    allT2s = np.array([Tpair[1] for TpairSample in Tpair_samples for Tpair in TpairSample])
+    
+    return allT1s, allT2s
+
+def OLD_p_getT1T2SamplesFromMultipleBurstDurations(durations, K, PTwoStateParameters, seed=None):
+    """
+    Runs through each duration, generates a CFD, samples T1, T2 values from CFD
+    N, k_1, k_minus1 provided in a parameter dictionary to tidy code
+    Returns two numpy arrays of T1, T2 values
+    """
+    # Unpack Two State Kinetic Parameters
+    N = PTwoStateParameters['N']
+    k_1 = PTwoStateParameters['k_1']
+    k_minus1 = PTwoStateParameters['k_minus1']
+
+    Tpair_samples = []
+
+    # Get T1, T2 samples
+    for _d in durations:
+        T_pairs = OLD_getMultipleT1T2SamplesFromBurstDuration(K, _d, N, k_1, k_minus1, seed=seed)
         Tpair_samples.append(T_pairs)
 
     # Get arrays of T1, and T2 for paralleled calculation
