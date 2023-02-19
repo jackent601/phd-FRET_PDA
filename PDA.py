@@ -70,6 +70,10 @@ def getEsnfEsnFromBurstDataFrame(BurstData, E1, E2, K, N, k1, kminus1, seed=None
     d, F = getDurationsAndFlourescence(BurstData)
     return getEsnfEsnFromDurationsAndFs(E1=E1, E2=E2, durations=d, Fs=F, K=K, N=N, k1=k1, kminus1=kminus1, seed=seed)
 
+def get_pEsn_fromBurstDataFrame(BurstData, Ebins, E1, E2, N, k1, kminus1):
+    d, F = getDurationsAndFlourescence(BurstData)
+    return KM2S.getDiscrete_pEsn_forMultipleBurst(N, Ebins, F, d, k1, kminus1, E1, E2)
+
 def OLD_getEsnfEsnFromBurstDataFrame(BurstData, E1, E2, K, N, k1, kminus1, seed=None):
     d, F = getDurationsAndFlourescence(BurstData)
     return getEsnfEsnFromDurationsAndFs(E1=E1, E2=E2, durations=d, Fs=F, K=K, N=N, k1=k1, kminus1=kminus1, seed=seed)
