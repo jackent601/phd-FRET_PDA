@@ -1,5 +1,10 @@
 Python implementation of Probability distribution analysis
 
+## Pressing Todo (Fit is currently not good enough...)
+
+- [ ] Gaussian Broadening
+- [ ] E-Hist smoothing
+
 #### Some References
 
 - [Characterizing Single-Molecule FRET Dynamics with Probability Distribution Analysis][4],
