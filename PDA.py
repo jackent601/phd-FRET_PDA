@@ -60,18 +60,22 @@ def getDiscrete_pEsn_forBurst(N, Ebins, F, burstDuration, k1, kminus1, E1, E2):
     
     return discrete_pEsn
 
-def getDiscrete_pEsn_forMultipleBurst(N, Ebins, F, burstDurations, k1, kminus1, E1, E2):
+def getDiscrete_pEsn_forMultipleBurst(N, Ebins, F, burstDurations, k1, kminus1, E1, E2, Weights=None):
     # Can either sum as you go (save space? at cost of time?) or sum at end (save time? at cost of space?)
+    # Weights provide scaling for each duration in case of binned sampling
+    if Weights is None:
+        Weights = np.full(len(burstDurations), 1)
+    
     bursts_discrete_pEsn = []
-    for b, _F in zip(burstDurations, F):
-        bursts_discrete_pEsn.append(getDiscrete_pEsn_forBurst(N=N, 
-                                                              Ebins=Ebins, 
-                                                              F=_F,
-                                                              burstDuration=b,
-                                                              k1=k1,
-                                                              kminus1=kminus1,
-                                                              E1=E1,
-                                                              E2=E2))
+    for b, _F, W in zip(burstDurations, F, Weights):
+        bursts_discrete_pEsn.append(W*getDiscrete_pEsn_forBurst(N=N,
+                                                                Ebins=Ebins,
+                                                                F=_F,
+                                                                burstDuration=b,
+                                                                k1=k1,
+                                                                kminus1=kminus1,
+                                                                E1=E1,
+                                                                E2=E2))
     discrete_pEsn = np.array(bursts_discrete_pEsn).sum(axis=0)
     return discrete_pEsn
 
@@ -139,17 +143,8 @@ def fastFindpEsn_fromBurstDataFrame(BurstData, nBurstBins, Ebins, E1, E2, N, k1,
     FmeanIntsNonZero = FmeansInts[tsBinned != 0]
 
     # Modified 'getDiscrete_pEsn_forMultipleBurst' to scale for counts within each bin
-    bursts_discrete_pEsn = []
-    for b, W, _F in zip(tBinCentresNonZero, tsBinnedNonZero, FmeanIntsNonZero):
-        bursts_discrete_pEsn.append(W*getDiscrete_pEsn_forBurst(N=N,
-                                                                Ebins=Ebins,
-                                                                F=_F,
-                                                                burstDuration=b,
-                                                                k1=k1,
-                                                                kminus1=kminus1,
-                                                                E1=E1,
-                                                                E2=E2))
-    discrete_pEsn = np.array(bursts_discrete_pEsn).sum(axis=0)
+    discrete_pEsn = getDiscrete_pEsn_forMultipleBurst(
+        N=N, Ebins=Ebins, F=FmeanIntsNonZero, burstDurations=tBinCentresNonZero, k1=k1, kminus1=kminus1, E1=E1, E2=E2, Weights=tsBinnedNonZero)
     return discrete_pEsn
 
 # ================================================================================================================================
@@ -182,3 +177,6 @@ def getSSEFromListOfEs(simulatedEs, Ebins, overSamplingFactorK, experimentEHist)
 def getSSEFromEHists(simulatedEHist, experimentEHist):
     return np.sum(np.array(np.array(experimentEHist) - np.array(simulatedEHist))**2)
 
+# ================================================================================================================================
+# GRADIENT DESCENT - OPTIMISES k1, kminus1 VALUES
+# ================================================================================================================================
