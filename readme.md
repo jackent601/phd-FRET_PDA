@@ -45,6 +45,7 @@ $$
 - [ ] Wrapper for gradient descent
 - [ ] Gaussian Noise
 - [ ] Some functions now depreciated in PDA.py file and should be removed
+- [ ] Specify a config to clean up some functions
 
 #### 'Rational'
 
