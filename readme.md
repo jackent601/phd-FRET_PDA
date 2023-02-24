@@ -2,7 +2,7 @@ Python implementation of Probability distribution analysis
 
 ## Pressing Todo (Fit is currently not good enough...)
 
-- [ ] Gaussian Broadening
+- [x] Gaussian Broadening
 - [ ] E-Hist smoothing
 
 #### Some References
