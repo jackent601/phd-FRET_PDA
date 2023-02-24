@@ -102,7 +102,7 @@ def getGaussianObjects(E1_0, E2_0, r0, rDeviation, gaussianResolution):
     E1E2Gaussian2Dpdf = r1pdf[:, np.newaxis]*r2pdf
     return E1GaussianVals, E2GaussianVals, E1E2Gaussian2Dpdf
 
-def getGaussianpEsnf_forBurst(PT1s, T1s, T2s, E1GaussianVals, E2GaussianVals, E1E2Gaussian2Dpdf, gaussianResolution, Ebins):
+def getGaussianpEsnf_forBurst(PT1s, T1s, T2s, E1GaussianVals, E2GaussianVals, E1E2Gaussian2Dpdf, gaussianResolution, Ebins, Tburst=None):
     """
     Using gaussian spreading 'objects' (see above) spreads Esnf values using gaussian processing
     involves lots of matrix multiplication - se jupyter notebook 'gaussian' to walk through this processing
@@ -124,6 +124,10 @@ def getGaussianpEsnf_forBurst(PT1s, T1s, T2s, E1GaussianVals, E2GaussianVals, E1
     # Summing these 3D matrices gives t1E1 + t2E2 for all values of E1, E2, t1, t2 
     # (slice, (row, column)) : (t, (t*E1, t*E2))
     t1E1_plus_t2E2 = t1E13Dz + t2E23Dz
+    
+    # If ts are not _relative_ entire matrix needs normalised
+    if Tburst is not None:
+        t1E1_plus_t2E2 = t1E1_plus_t2E2/Tburst
 
     # Each (row, column) slice maps to the SAME 2D probability distribution p(E1, E2): (row, column) : (E1, E2), so need to extend this in x by len(t)
     # (t, (E1, E2))
@@ -157,7 +161,8 @@ def getDiscrete_pEsn_forBurst_withGaussian(N, Ebins, EbinCentres, F, burstDurati
                                             E2GaussianVals=E2GaussianVals, 
                                             E1E2Gaussian2Dpdf=E1E2Gaussian2Dpdf, 
                                             gaussianResolution=gaussianResolution, 
-                                            Ebins=Ebins)
+                                            Ebins=Ebins,
+                                            Tburst=burstDuration)
     
     # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
     # Get final Esn by binomial spreading
