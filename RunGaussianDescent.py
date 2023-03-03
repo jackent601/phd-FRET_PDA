@@ -100,9 +100,14 @@ if __name__ == '__main__':
         # = = = = = = = = = = = = = = = = = = = =  = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         logPrefix = 'logkSearch'
         logDir = os.path.join(ROOT_DIR)
-        os.makedirs(ROOT_DIR, exists_ok=True)
-        os.makedirs(os.path.join(ROOT_DIR), exists_ok=True)
+        os.makedirs(ROOT_DIR, exist_ok=True)
+        os.makedirs(os.path.join(ROOT_DIR), exist_ok=True)
         for g in groups:
+            # make subdir for group
+            logSubDir = os.path.join(logDir, g)
+            os.makedirs(logSubDir, exist_ok=True)
+            if args.verbose:
+                print(f'Running g:{g}, #bursts: {len(g_subset)}')
             g_subset = burst_data[burst_data[GroupFeatureName] == g]
             
             # Get Experimental E histogram
@@ -127,7 +132,7 @@ if __name__ == '__main__':
             # Run log k-space search
             # = = = = = = = = = = = = = = = = = = = =  = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
             # Full Method, run log search to find initial guesses of k1, k-1 and check loss function will be smooth
-            _savepath = os.path.join(logDir, f'{logPrefix}_{g}')
+            _savepath = os.path.join(logSubDir, f'{logPrefix}_{g}')
             logResults = []
             for _k1 in kRange:
                 for _kminus1 in kRange:
