@@ -292,7 +292,7 @@ class kineticFitting():
         # Plot results
         k1_Opt, kminus1_Opt = optResult.x
         pEsn_Opt = self.get_pEsnWithGauss(nBurstBins, k1_Opt, kminus1_Opt)
-        self.plot_pEsn(pEsn_Opt, title = f'Optimised, k1: {k1_Opt:0.2f}, kminus1: {kminus1_Opt:0.2f}', savePath=os.path.join(saveDir, "optimised.png"))
+        self.plot_pEsn(pEsn_Opt, title = f'Optimised, k1: {k1_Opt:0.2f}, kminus1: {kminus1_Opt:0.2f}', savePath=os.path.join(saveDir, f"optimised_converged_{optResult.success}.png"))
         print(f'Burst Count: {sum(self.experimentalEHist)}, ({len(self.validBurstData)}) Simulated Count: {sum(pEsn_Opt):0.0f}')
         print(optResult)
     

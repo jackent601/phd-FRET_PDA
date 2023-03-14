@@ -83,6 +83,8 @@ if __name__ == '__main__':
     burst_data_grouped = burst_data.groupby(GroupFeatureName)
 
     # Initialise Kinetic Fit Objects
+    kineticFitDir = os.path.join(ROOT_DIR, 'fitObjects')
+    os.makedirs(kineticFitDir, exist_ok=True)
     kfs = []
     for name, group in burst_data_grouped:
         kf = kineticFitting(rawBurstData=group, EBins=EBins, EBinCentres=EBinCentres, metaData={
@@ -98,3 +100,7 @@ if __name__ == '__main__':
                                  optimiseMethod='L-BFGS-B',
                                  optimiseOptions=OPT_OPTIONS,
                                  kbounds=((5, 5000), (5, 5000)))
+        
+        # Save kinetic fit object
+        with open(os.path.join(kineticFitDir,f'kfObj_{GroupFeatureName}_{name}.pkl'), "wb") as f:
+            pickle.dump(kf, f)
