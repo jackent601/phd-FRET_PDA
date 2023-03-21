@@ -225,7 +225,7 @@ class kineticFitting():
         sse = self.getSSEpEsn(pEsn)
         
         # Save results in object
-        meta = {'method': 'BinnedGaussian', 'nBurstBins': nBurstBins, 'r0': r0, 'rDeviation': rDeviation, 'gaussianResolution': gaussianResolution}
+        meta = {'method': 'BinnedGaussian', 'nBurstBins': None, 'r0': r0, 'rDeviation': rDeviation, 'gaussianResolution': gaussianResolution}
         _res = {'k1': k1, 'kminus1': kminus1, 'pEsn': pEsn, 'SSE': sse, 'E1': E1, 'E2': E2, 'metaData': meta}
         self.addKineticResult(_res)
         return pEsn
@@ -354,7 +354,6 @@ class kineticFitting():
     def optimiseFullPDA(self,
                         saveDir,
                         intial_ks,
-                        nBurstBins,
                         optimiseMethod='L-BFGS-B',
                         optimiseOptions={'eps': [1, 1], 'ftol': 1e-10, 'gtol': 1e-10, 'maxiter': 50},
                         kbounds=((5, 5000), (5, 5000))):
@@ -386,7 +385,7 @@ class kineticFitting():
         
         # Plot results
         k1_Opt, kminus1_Opt = optResult.x
-        pEsn_Opt = self.get_pEsnWithGauss_binned(nBurstBins, k1_Opt, kminus1_Opt)
+        pEsn_Opt = self.get_pEsnWithGauss_full(k1_Opt, kminus1_Opt)
         self.plot_pEsn(pEsn_Opt, title = f'Optimised, k1: {k1_Opt:0.2f}, kminus1: {kminus1_Opt:0.2f}', savePath=os.path.join(saveDir, f"optimised_converged_{optResult.success}.png"))
         print(f'Burst Count: {sum(self.experimentalEHist)}, ({len(self.validBurstData)}) Simulated Count: {sum(pEsn_Opt):0.0f}')
         print(optResult)
