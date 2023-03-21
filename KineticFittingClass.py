@@ -7,9 +7,10 @@ import os
 import pickle
 
 # PDA modules
-import PDA as PDA
+import FRET_PDA.PDA as PDA
 
 # FRET modules
+sys.path.append('./')
 sys.path.append('./../')
 import FRET_modules.modulesCorrectionFactorsAndPlots as MCF
 import matplotlib.pyplot as plt
@@ -159,7 +160,7 @@ class kineticFitting():
         plt.show()
         
     # PDA
-    def get_pEsnWithGauss(self, nBurstBins, k1, kminus1, E1=None, E2=None, N=None, r0=None, rDeviation=None, gaussianResolution=None, plot=True):
+    def get_pEsnWithGauss_binned(self, nBurstBins, k1, kminus1, E1=None, E2=None, N=None, r0=None, rDeviation=None, gaussianResolution=None, plot=True):
         """
         Bins burst durations first to speed up optimisation, option for PDA parameters to be overwritten
         Saves results to a results list tied to object
@@ -185,6 +186,41 @@ class kineticFitting():
                                                                 r0=r0,
                                                                 rDeviation=rDeviation,
                                                                 gaussianResolution=gaussianResolution)
+        # Get SSE
+        sse = self.getSSEpEsn(pEsn)
+        
+        # Save results in object
+        meta = {'method': 'BinnedGaussian', 'nBurstBins': nBurstBins, 'r0': r0, 'rDeviation': rDeviation, 'gaussianResolution': gaussianResolution}
+        _res = {'k1': k1, 'kminus1': kminus1, 'pEsn': pEsn, 'SSE': sse, 'E1': E1, 'E2': E2, 'metaData': meta}
+        self.addKineticResult(_res)
+        return pEsn
+
+    def get_pEsnWithGauss_full(self, k1, kminus1, E1=None, E2=None, N=None, r0=None, rDeviation=None, gaussianResolution=None, plot=True):
+        """
+        Runs PDA for every burst rather than binning durations as in get_pEsnWithGauss_binned
+        option for PDA parameters to be overwritten
+        Saves results to a results list tied to object
+        """
+        # Unpack defaults if necessary
+        E1 = E1 if E1 is not None else self.static_E1
+        E2 = E2 if E2 is not None else self.static_E2
+        N = N if N is not None else self.N
+        r0 = r0 if r0 is not None else self.r0
+        rDeviation = rDeviation if rDeviation is not None else self.rDeviation
+        gaussianResolution = gaussianResolution if gaussianResolution is not None else self.gaussianResolution
+        
+        # Run kinetic simulation
+        pEsn = PDA.get_pEsn_fromBurstDataFrame_withGaussian(BurstData=self.validBurstData,
+                                                            Ebins=self.EBins,
+                                                            EbinCentres=self.EBinCentres,
+                                                            E1=E1,
+                                                            E2=E2,
+                                                            N=N,
+                                                            k1=k1,
+                                                            kminus1=kminus1,
+                                                            r0=r0,
+                                                            rDeviation=rDeviation,
+                                                            gaussianResolution=gaussianResolution)
         # Get SSE
         sse = self.getSSEpEsn(pEsn)
         
@@ -231,6 +267,12 @@ class kineticFitting():
     def getKineticResults(self):
         return self.kineticResults
     
+    def getLowestSSEResults(self):
+        _results = self.getKineticResults()
+        sses = [d['SSE'] for d in _results]
+        sse_min = np.argmin(sses)
+        return _results[sse_min]
+    
     def addOptimisationResult(self, result):
         self.optimisationResults.append(result)
         
@@ -251,7 +293,7 @@ class kineticFitting():
                                       rDeviation=None, 
                                       gaussianResolution=None):
         """Very similar to get_pEsnWithGauss but k's are array to be optimised"""
-        _pEsn = self.get_pEsnWithGauss(nBurstBins=nBurstBins, k1=x[0], kminus1=x[1], E1=E1, E2=E2, N=N, r0=r0, rDeviation=rDeviation, gaussianResolution=gaussianResolution)
+        _pEsn = self.get_pEsnWithGauss_binned(nBurstBins=nBurstBins, k1=x[0], kminus1=x[1], E1=E1, E2=E2, N=N, r0=r0, rDeviation=rDeviation, gaussianResolution=gaussianResolution)
         sse = self.getSSEpEsn(_pEsn)
         return sse
     
@@ -291,10 +333,74 @@ class kineticFitting():
         
         # Plot results
         k1_Opt, kminus1_Opt = optResult.x
-        pEsn_Opt = self.get_pEsnWithGauss(nBurstBins, k1_Opt, kminus1_Opt)
+        pEsn_Opt = self.get_pEsnWithGauss_binned(nBurstBins, k1_Opt, kminus1_Opt)
         self.plot_pEsn(pEsn_Opt, title = f'Optimised, k1: {k1_Opt:0.2f}, kminus1: {kminus1_Opt:0.2f}', savePath=os.path.join(saveDir, f"optimised_converged_{optResult.success}.png"))
         print(f'Burst Count: {sum(self.experimentalEHist)}, ({len(self.validBurstData)}) Simulated Count: {sum(pEsn_Opt):0.0f}')
         print(optResult)
+
+    def optimiseFullPDALossFunction(self,
+                                    x,
+                                    E1=None,
+                                    E2=None,
+                                    N=None,
+                                    r0=None,
+                                    rDeviation=None,
+                                    gaussianResolution=None):
+        """Very similar to get_pEsnWithGauss but k's are array to be optimised"""
+        _pEsn = self.get_pEsnWithGauss_full(k1=x[0], kminus1=x[1], E1=E1, E2=E2, N=N, r0=r0, rDeviation=rDeviation, gaussianResolution=gaussianResolution)
+        sse = self.getSSEpEsn(_pEsn)
+        return sse
+    
+    def optimiseFullPDA(self,
+                        saveDir,
+                        intial_ks,
+                        nBurstBins,
+                        optimiseMethod='L-BFGS-B',
+                        optimiseOptions={'eps': [1, 1], 'ftol': 1e-10, 'gtol': 1e-10, 'maxiter': 50},
+                        kbounds=((5, 5000), (5, 5000))):
+        """
+        Each itertion will save result to list stored in self
+        callback function can also plot the results for convenient debugging by fetching last stored result in this list
+        """
+        # Create directory for figures
+        figDir = os.path.join(saveDir, 'figs')
+        os.makedirs(figDir, exist_ok=True)
+
+        # Call back debug
+        _callback=lambda kpair: self.plot_pEsn(pEsn=self.getKineticResults()[-1]['pEsn'], 
+                                               title=f'Optimising k1: {self.getKineticResults()[-1]["k1"]:0.2f}, kminus1: {self.getKineticResults()[-1]["kminus1"]:0.2f}, SSE: {self.getKineticResults()[-1]["SSE"]:0.0f}', 
+                                               savePath=os.path.join(figDir, f'Opt_{len(self.getKineticResults())}.png'))
+        # _callback=lambda kpair: print(f'Ran k1: {kpair[0]:0.2f}, k-1: {kpair[1]:0.2f}')
+        
+        # Currently unbounded with not optimisation options
+        optResult = minimize(self.optimiseFullPDALossFunction,
+                             x0=np.array([intial_ks[0], intial_ks[1]]),
+                             bounds=kbounds, 
+                             callback=_callback,
+                             method=optimiseMethod,
+                             options=optimiseOptions)
+        
+        # Add result
+        _optResultEntry = {'optResult': optResult, 'initial_ks': intial_ks, 'method': optimiseMethod, 'options': optimiseOptions, 'nBurstBins': None}
+        self.addOptimisationResult(_optResultEntry)
+        
+        # Plot results
+        k1_Opt, kminus1_Opt = optResult.x
+        pEsn_Opt = self.get_pEsnWithGauss_binned(nBurstBins, k1_Opt, kminus1_Opt)
+        self.plot_pEsn(pEsn_Opt, title = f'Optimised, k1: {k1_Opt:0.2f}, kminus1: {kminus1_Opt:0.2f}', savePath=os.path.join(saveDir, f"optimised_converged_{optResult.success}.png"))
+        print(f'Burst Count: {sum(self.experimentalEHist)}, ({len(self.validBurstData)}) Simulated Count: {sum(pEsn_Opt):0.0f}')
+        print(optResult)
+        
+    def getOptResultDict(self, optResultDict):
+        
+        return {'initial_k1': optResultDict['initial_ks'][0], 
+                'initial_kminus1': optResultDict['initial_ks'][1], 
+                'k1_opt': optResultDict['optResult'].x[0], 
+                'kminus1_opt': optResultDict['optResult'].x[1], 
+                'E1_opt': kf.static_E1,
+                'E2-opt': kf.static_E2,
+                'successful': optResultDict['optResult'].success, 
+                'message': optResultDict['optResult'].message}
     
     def __str__(self):
         s = "E-Acquisition & Kinetic Fitting Object\n"
